@@ -1,0 +1,127 @@
+[
+  {
+    "NodeCode": "P001",
+    "FullName": "Phan Nhân Thọ",
+    "Sex": "Nam",
+    "FamilyNameGroup": "Phan",
+    "Parent": "",
+    "Level": 1,
+    "Birthday": "1750-02-19",
+    "Description": "Cụ Khởi tổ",
+    "Image": "",
+    "Children": [
+      {
+        "NodeCode": "P002",
+        "FullName": "Phan Nhân Ái",
+        "Sex": "Nam",
+        "FamilyNameGroup": "Phan",
+        "Parent": "P001",
+        "Level": 2,
+        "Birthday": "1780-05-10",
+        "Description": "Con trai cụ Khởi tổ",
+        "Image": "",
+        "Children": [
+          {
+            "NodeCode": "P002.1",
+            "FullName": "Phan Nhân Chiêu",
+            "Sex": "Nam",
+            "FamilyNameGroup": "Phan",
+            "Parent": "P002",
+            "Level": 3,
+            "Birthday": "1810-03-15",
+            "Description": "Cháu nội cụ Khởi tổ",
+            "Image": "",
+            "Children": [
+              {
+                "NodeCode": "P002.1.1",
+                "FullName": "Phan Văn Mổ",
+                "Sex": "Nam",
+                "FamilyNameGroup": "Phan",
+                "Parent": "P002.1",
+                "Level": 4,
+                "Birthday": "1840-07-20",
+                "Description": "Chắt cụ Khởi tổ",
+                "Image": "",
+                "Children": [
+                  {
+                    "NodeCode": "P002.1.1.1",
+                    "FullName": "Phan Đức Hai",
+                    "Sex": "Nam",
+                    "FamilyNameGroup": "Phan",
+                    "Parent": "P002.1.1",
+                    "Level": 5,
+                    "Birthday": "1870-11-05",
+                    "Description": "Cháu chắt cụ Khởi tổ",
+                    "Image": "",
+                    "Children": []
+                  },
+                  {
+                    "NodeCode": "P002.1.1.2",
+                    "FullName": "Phan Đức Ba",
+                    "Sex": "Nam",
+                    "FamilyNameGroup": "Phan",
+                    "Parent": "P002.1.1",
+                    "Level": 5,
+                    "Birthday": "1872-02-14",
+                    "Description": "Em Phan Đức Hai",
+                    "Image": "",
+                    "Children": []
+                  }
+                ]
+              },
+              {
+                "NodeCode": "P002.1.2",
+                "FullName": "Phan Văn Sâm",
+                "Sex": "Nam",
+                "FamilyNameGroup": "Phan",
+                "Parent": "P002.1",
+                "Level": 4,
+                "Birthday": "1842-09-12",
+                "Description": "Em Phan Văn Mổ",
+                "Image": "",
+                "Children": []
+              }
+            ]
+          },
+          {
+            "NodeCode": "P002.2",
+            "FullName": "Phan Nhân Dũng",
+            "Sex": "Nam",
+            "FamilyNameGroup": "Phan",
+            "Parent": "P002",
+            "Level": 3,
+            "Birthday": "1815-08-22",
+            "Description": "Em Phan Nhân Chiêu",
+            "Image": "",
+            "Children": []
+          }
+        ]
+      },
+      {
+        "NodeCode": "P003",
+        "FullName": "Phan Nhân Toản",
+        "Sex": "Nam",
+        "FamilyNameGroup": "Phan",
+        "Parent": "P001",
+        "Level": 2,
+        "Birthday": "1785-01-08",
+        "Description": "Em Phan Nhân Ái",
+        "Image": "",
+        "Children": [
+          {
+            "NodeCode": "P003.1",
+            "FullName": "Phan Hữu Phương",
+            "Sex": "Nam",
+            "FamilyNameGroup": "Phan",
+            "Parent": "P003",
+            "Level": 3,
+            "Birthday": "1820-04-18",
+            "Description": "Con Phan Nhân Toản",
+            "Image": "",
+            "Children": []
+          }
+        ]
+      }
+    ]
+  }
+]

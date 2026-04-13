@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "test-copy",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Copy-Item 'C:\\Users\\ADMIN\\Downloads\\family-tree-500node.json' 'e:\\canvas_kit\\example\\tmp_copy_test.json' -Force"
+			],
+			"isBackground": false
+		}
+	]
+}
