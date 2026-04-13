@@ -9,7 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:three_js/three_js.dart' as three;
-import 'package:three_js_advanced_loaders/three_js_advanced_loaders.dart' as adv;
+import 'package:three_js_advanced_loaders/three_js_advanced_loaders.dart'
+    as adv;
 import 'package:three_js_math/three_js_math.dart' show RGBAFormat;
 
 const String _kAltarGlbBundleDir = 'assets/altar_glb/';
@@ -43,6 +44,27 @@ const Map<String, String> _kVietnameseAssetNames = <String, String>{
   'porcelain vase 3d model (1).glb': 'Bình sứ mẫu 2',
 };
 
+const Map<String, String> _kAvatarAssetByGlbName = <String, String>{
+  'wooden altar 3d model.glb': 'assets/avatars/wooden_altar.png',
+  'crystal pagoda 3d model.glb': 'assets/avatars/crystal_pagoda.png',
+  'golden lotus trophy 3d model.glb': 'assets/avatars/golden_lotus_trophy.png',
+  'ornate brass incense burner 3d model.glb':
+      'assets/avatars/ornate_brass_incense_burner.png',
+  'ornate framed plaque 3d model.glb':
+      'assets/avatars/ornate_framed_plaque.png',
+  'ornate glass oil lamp 3d model.glb':
+      'assets/avatars/ornate_glass_oil_lamp.png',
+  'porcelain pedestal 3d model.glb': 'assets/avatars/porcelain_pedestal.png',
+  'porcelain sugar jar 3d model.glb':
+      'assets/avatars/porcelain_sugar_jar.png',
+  'porcelain vase 3d model.glb': 'assets/avatars/porcelain_vase.png',
+  'porcelain vase 3d model (1).glb': 'assets/avatars/porcelain_vase_1.png',
+};
+
+String? _avatarAssetPathForGlb(String fileName) {
+  return _kAvatarAssetByGlbName[fileName.toLowerCase()];
+}
+
 String _prettyGlbDisplayName(String fileName) {
   final String mapped = _kVietnameseAssetNames[fileName.toLowerCase()] ?? '';
   if (mapped.isNotEmpty) {
@@ -60,11 +82,15 @@ String _prettyGlbDisplayName(String fileName) {
 }
 
 Future<List<String>> _glbNamesFromFlutterBundle() async {
-  final AssetManifest manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+  final AssetManifest manifest = await AssetManifest.loadFromAssetBundle(
+    rootBundle,
+  );
   final List<String> keys = manifest.listAssets();
   return keys
       .where(
-        (String k) => k.startsWith(_kAltarGlbBundleDir) && k.toLowerCase().endsWith('.glb'),
+        (String k) =>
+            k.startsWith(_kAltarGlbBundleDir) &&
+            k.toLowerCase().endsWith('.glb'),
       )
       .map((String k) => k.substring(_kAltarGlbBundleDir.length))
       .toList();
@@ -118,6 +144,10 @@ Future<List<AltarAsset>> discoverAltarLibraryAssets() async {
     names.addAll(_glbNamesFromDiskSearch());
   }
   final List<String> sorted = names.toList();
+  // Keep this model available on disk if needed, but hide it from library menu.
+  sorted.removeWhere(
+    (String name) => name.toLowerCase() == 'ornate wooden altar 3d model.glb',
+  );
   const String altarFirst = 'wooden altar 3d model.glb';
   sorted.sort((String a, String b) {
     final bool aw = a == altarFirst;
@@ -132,10 +162,8 @@ Future<List<AltarAsset>> discoverAltarLibraryAssets() async {
   });
   return sorted
       .map(
-        (String path) => AltarAsset(
-          name: _prettyGlbDisplayName(path),
-          path: path,
-        ),
+        (String path) =>
+            AltarAsset(name: _prettyGlbDisplayName(path), path: path),
       )
       .toList();
 }
@@ -223,12 +251,13 @@ class AltarSetupPage extends StatefulWidget {
 class _AltarSetupPageState extends State<AltarSetupPage> {
   List<AltarAsset> _libraryAssets = <AltarAsset>[];
   bool _libraryLoading = true;
-  bool _showLibraryPanel = true;
+  bool _showLibraryPanel = false;
 
   final List<AltarPlacedItem> _items = <AltarPlacedItem>[];
   String? _selectedItemId;
   bool _isSaving = false;
   bool _moveItemMode = false;
+  bool _showItemControlPanel = true;
 
   @override
   void initState() {
@@ -278,9 +307,9 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
     await prefs.setString(_prefsKey, encoded);
     if (!mounted) return;
     setState(() => _isSaving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Da luu bo cuc ban tho.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Da luu bo cuc ban tho.')));
   }
 
   void _addFromAsset(
@@ -290,12 +319,18 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
   }) {
     final String id = '${asset.path}_${DateTime.now().microsecondsSinceEpoch}';
     const double defaultScale = 1.0;
-    final double maxX =
-        (zoneSize.width - _itemWidth(defaultScale)).clamp(0, double.infinity);
-    final double maxY =
-        (zoneSize.height - _itemHeight(defaultScale)).clamp(0, double.infinity);
-    final double spawnX = (dropLocalPosition?.dx ?? (zoneSize.width * 0.45)).clamp(0, maxX);
-    final double spawnY = (dropLocalPosition?.dy ?? (zoneSize.height * 0.4)).clamp(0, maxY);
+    final double maxX = (zoneSize.width - _itemWidth(defaultScale)).clamp(
+      0,
+      double.infinity,
+    );
+    final double maxY = (zoneSize.height - _itemHeight(defaultScale)).clamp(
+      0,
+      double.infinity,
+    );
+    final double spawnX = (dropLocalPosition?.dx ?? (zoneSize.width * 0.45))
+        .clamp(0, maxX);
+    final double spawnY = (dropLocalPosition?.dy ?? (zoneSize.height * 0.4))
+        .clamp(0, maxY);
     setState(() {
       _items.add(
         AltarPlacedItem(
@@ -313,10 +348,13 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
   }
 
   void _updateItem(AltarPlacedItem updated) {
-    final int index = _items.indexWhere((AltarPlacedItem e) => e.id == updated.id);
+    final int index = _items.indexWhere(
+      (AltarPlacedItem e) => e.id == updated.id,
+    );
     if (index < 0) return;
     final AltarPlacedItem current = _items[index];
-    final bool changed = current.x != updated.x ||
+    final bool changed =
+        current.x != updated.x ||
         current.y != updated.y ||
         current.scale != updated.scale ||
         current.lift != updated.lift;
@@ -336,6 +374,27 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
 
   double _itemWidth(double scale) => 140 * scale;
   double _itemHeight(double scale) => 140 * scale;
+
+  AltarPlacedItem _scaleItemPreserveCenter({
+    required AltarPlacedItem item,
+    required double scale,
+    required Size zoneSize,
+  }) {
+    final double oldW = _itemWidth(item.scale);
+    final double oldH = _itemHeight(item.scale);
+    final double newW = _itemWidth(scale);
+    final double newH = _itemHeight(scale);
+
+    final double centerX = item.x + oldW / 2;
+    final double centerY = item.y + oldH / 2;
+    final double maxX = (zoneSize.width - newW).clamp(0, double.infinity);
+    final double maxY = (zoneSize.height - newH).clamp(0, double.infinity);
+
+    final double nextX = (centerX - newW / 2).clamp(0, maxX);
+    final double nextY = (centerY - newH / 2).clamp(0, maxY);
+    return item.copyWith(scale: scale, x: nextX, y: nextY);
+  }
+
   /// Khung điện thờ: toàn bộ không gian scene là mô hình bàn thờ 3D này.
   static const String _altarBasePath = 'wooden altar 3d model.glb';
 
@@ -375,8 +434,9 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
     ];
     for (final String root in roots) {
       for (final String sub in subdirs) {
-        final String full =
-            sub.isEmpty ? p.join(root, assetPath) : p.join(root, sub, assetPath);
+        final String full = sub.isEmpty
+            ? p.join(root, assetPath)
+            : p.join(root, sub, assetPath);
         final File file = File(full);
         if (file.existsSync()) {
           return file.absolute.path;
@@ -397,8 +457,21 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
         actions: <Widget>[
           IconButton(
             tooltip: _showLibraryPanel ? 'Ẩn thư viện' : 'Mở thư viện',
-            onPressed: () => setState(() => _showLibraryPanel = !_showLibraryPanel),
+            onPressed: () =>
+                setState(() => _showLibraryPanel = !_showLibraryPanel),
             icon: Icon(_showLibraryPanel ? Icons.menu_open : Icons.menu),
+          ),
+          IconButton(
+            tooltip: _showItemControlPanel ? 'Ẩn bảng điều khiển vật' : 'Hiện bảng điều khiển vật',
+            onPressed: _items.isEmpty
+                ? null
+                : () =>
+                      setState(() => _showItemControlPanel = !_showItemControlPanel),
+            icon: Icon(
+              _showItemControlPanel
+                  ? Icons.tune
+                  : Icons.tune_outlined,
+            ),
           ),
           IconButton(
             tooltip: 'Xóa vật đang chọn',
@@ -423,26 +496,36 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
         builder: (BuildContext context) {
           final Widget scenePane = LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
-              final Size zoneSize = Size(constraints.maxWidth, constraints.maxHeight);
+              final Size zoneSize = Size(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
               return Stack(
                 children: <Widget>[
                   DragTarget<AltarAsset>(
-                    onAcceptWithDetails: (DragTargetDetails<AltarAsset> details) {
-                      final RenderBox? box = context.findRenderObject() as RenderBox?;
-                      final Offset localDrop = box?.globalToLocal(details.offset) ??
-                          Offset(zoneSize.width * 0.45, zoneSize.height * 0.4);
-                      _addFromAsset(
-                        details.data,
-                        zoneSize,
-                        dropLocalPosition: localDrop,
-                      );
-                    },
+                    onAcceptWithDetails:
+                        (DragTargetDetails<AltarAsset> details) {
+                          final RenderBox? box =
+                              context.findRenderObject() as RenderBox?;
+                          final Offset localDrop =
+                              box?.globalToLocal(details.offset) ??
+                              Offset(
+                                zoneSize.width * 0.45,
+                                zoneSize.height * 0.4,
+                              );
+                          _addFromAsset(
+                            details.data,
+                            zoneSize,
+                            dropLocalPosition: localDrop,
+                          );
+                        },
                     builder: (_, __, ___) {
                       return _AltarSceneView(
                         altarAssetFileName: _altarBasePath,
                         items: _items,
                         selectedItemId: _selectedItemId,
-                        onTapItem: (String id) => setState(() => _selectedItemId = id),
+                        onTapItem: (String id) =>
+                            setState(() => _selectedItemId = id),
                         zoneSize: zoneSize,
                         resolveModelPath: _resolveModelPath,
                         allowOrbit: !_moveItemMode,
@@ -452,14 +535,15 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                       );
                     },
                   ),
-                  if (_items.isNotEmpty)
+                  if (_items.isNotEmpty && _showItemControlPanel)
                     Positioned(
                       top: 8,
                       right: 8,
                       width: isCompactLayout ? 260 : 300,
                       child: Builder(
                         builder: (BuildContext context) {
-                          final AltarPlacedItem panelItem = _resolveSelectedItem()!;
+                          final AltarPlacedItem panelItem =
+                              _resolveSelectedItem()!;
                           return Material(
                             elevation: 6,
                             borderRadius: BorderRadius.circular(12),
@@ -471,7 +555,9 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                 children: <Widget>[
                                   Text(
                                     'Chọn vật trên bàn',
-                                    style: Theme.of(context).textTheme.labelMedium,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelMedium,
                                   ),
                                   const SizedBox(height: 4),
                                   DropdownButton<String>(
@@ -479,14 +565,16 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                     value: panelItem.id,
                                     items: _items
                                         .map(
-                                          (AltarPlacedItem e) => DropdownMenuItem<String>(
-                                            value: e.id,
-                                            child: Text(
-                                              e.name,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
+                                          (AltarPlacedItem e) =>
+                                              DropdownMenuItem<String>(
+                                                value: e.id,
+                                                child: Text(
+                                                  e.name,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
                                         )
                                         .toList(),
                                     onChanged: (String? id) {
@@ -502,7 +590,10 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                         ButtonSegment<bool>(
                                           value: false,
                                           label: Text('Xoay'),
-                                          icon: Icon(Icons.threed_rotation, size: 18),
+                                          icon: Icon(
+                                            Icons.threed_rotation,
+                                            size: 18,
+                                          ),
                                         ),
                                         ButtonSegment<bool>(
                                           value: true,
@@ -523,7 +614,8 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                     _moveItemMode
                                         ? 'Giữ chuột trái để kéo vật trên mặt bàn. Giữ Shift + kéo lên/xuống để nâng/hạ độ cao trong không gian.'
                                         : 'Kéo để xoay camera, rồi chuyển sang Di chuyển để sắp xếp.',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
                                           color: const Color(0xFF64748B),
                                           fontSize: 11,
                                         ),
@@ -531,31 +623,29 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                   const SizedBox(height: 6),
                                   Row(
                                     children: <Widget>[
-                                      const Text('Tỉ lệ', style: TextStyle(fontSize: 12)),
+                                      const Text(
+                                        'Tỉ lệ',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                       Expanded(
                                         child: Slider(
                                           min: 0.5,
                                           max: 2.5,
                                           value: panelItem.scale,
                                           divisions: 20,
-                                          label: panelItem.scale.toStringAsFixed(2),
+                                          label: panelItem.scale
+                                              .toStringAsFixed(2),
                                           onChanged: (double value) {
-                                            final AltarPlacedItem active = panelItem;
-                                            final double maxX =
-                                                (zoneSize.width - _itemWidth(value)).clamp(
-                                              0,
-                                              double.infinity,
-                                            );
-                                            final double maxY =
-                                                (zoneSize.height - _itemHeight(value)).clamp(
-                                              0,
-                                              double.infinity,
-                                            );
+                                            final AltarPlacedItem? active =
+                                                _resolveSelectedItem();
+                                            if (active == null) {
+                                              return;
+                                            }
                                             _updateItem(
-                                              active.copyWith(
+                                              _scaleItemPreserveCenter(
+                                                item: active,
                                                 scale: value,
-                                                x: active.x.clamp(0, maxX),
-                                                y: active.y.clamp(0, maxY),
+                                                zoneSize: zoneSize,
                                               ),
                                             );
                                           },
@@ -565,7 +655,10 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                   ),
                                   Row(
                                     children: <Widget>[
-                                      const Text('Độ cao', style: TextStyle(fontSize: 12)),
+                                      const Text(
+                                        'Độ cao',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                       Expanded(
                                         child: Slider(
                                           min: _AltarSceneViewState._minLift,
@@ -575,9 +668,13 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                                             _AltarSceneViewState._maxLift,
                                           ),
                                           divisions: 32,
-                                          label: panelItem.lift.toStringAsFixed(2),
+                                          label: panelItem.lift.toStringAsFixed(
+                                            2,
+                                          ),
                                           onChanged: (double value) {
-                                            _updateItem(panelItem.copyWith(lift: value));
+                                            _updateItem(
+                                              panelItem.copyWith(lift: value),
+                                            );
                                           },
                                         ),
                                       ),
@@ -601,17 +698,9 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
             onClose: () => setState(() => _showLibraryPanel = false),
           );
 
-          if (!isCompactLayout) {
-            return Row(
-              children: <Widget>[
-                if (_showLibraryPanel) SizedBox(width: 280, child: libraryPane),
-                if (_showLibraryPanel) const VerticalDivider(width: 1),
-                Expanded(child: scenePane),
-              ],
-            );
-          }
-
-          final double panelWidth = (screenWidth * 0.82).clamp(240.0, 320.0);
+          final double panelWidth = isCompactLayout
+              ? (screenWidth * 0.82).clamp(240.0, 320.0)
+              : (screenWidth * 0.3).clamp(280.0, 380.0);
           return Stack(
             children: <Widget>[
               Positioned.fill(child: scenePane),
@@ -656,7 +745,11 @@ class _LibraryPanel extends StatelessWidget {
   final bool loading;
   final VoidCallback? onClose;
 
-  const _LibraryPanel({required this.assets, required this.loading, this.onClose});
+  const _LibraryPanel({
+    required this.assets,
+    required this.loading,
+    this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -690,8 +783,8 @@ class _LibraryPanel extends StatelessWidget {
                 Text(
                   'Bỏ file .glb vào example/assets/altar_glb/ rồi chạy lại ứng dụng.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF64748B),
-                      ),
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
               ],
             ),
@@ -700,33 +793,36 @@ class _LibraryPanel extends StatelessWidget {
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : assets.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          'Chưa có file .glb trong assets/altar_glb/',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                ? Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      'Chưa có file .glb trong assets/altar_glb/',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    itemCount: assets.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (BuildContext context, int index) {
+                      final AltarAsset asset = assets[index];
+                      return Draggable<AltarAsset>(
+                        data: asset,
+                        feedback: Material(
+                          elevation: 2,
+                          child: _AssetTile(asset: asset, compact: true),
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        itemCount: assets.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (BuildContext context, int index) {
-                          final AltarAsset asset = assets[index];
-                          return Draggable<AltarAsset>(
-                            data: asset,
-                            feedback: Material(
-                              elevation: 2,
-                              child: _AssetTile(asset: asset, compact: true),
-                            ),
-                            childWhenDragging: Opacity(
-                              opacity: 0.4,
-                              child: _AssetTile(asset: asset),
-                            ),
-                            child: _AssetTile(asset: asset),
-                          );
-                        },
-                      ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.4,
+                          child: _AssetTile(asset: asset),
+                        ),
+                        child: _AssetTile(asset: asset),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -766,11 +862,22 @@ class _AltarSceneView extends StatefulWidget {
 class _AltarSceneViewState extends State<_AltarSceneView> {
   /// Mặt phẳng đặt đồ (mặt bằng): chỉ XZ trong không gian 3D, Y = mặt trên bàn.
   static const double _altarSurfaceY = 1.2;
-  static const double _altarPlaneHalfWidth = 1.65;
+  static const double _altarPlaneHalfWidthLandscape = 2.35;
+  static const double _altarPlaneHalfWidthPortrait = 1.95;
   static const double _altarPlaneHalfDepth = 0.9;
   static const double _minLift = -1.2;
   static const double _maxLift = 1.8;
   static const double _liftDragPerPixel = 0.01;
+
+  double get _altarPlaneHalfWidth {
+    if (widget.zoneSize.width <= 0 || widget.zoneSize.height <= 0) {
+      return _altarPlaneHalfWidthLandscape;
+    }
+    final bool portrait = widget.zoneSize.height > widget.zoneSize.width;
+    return portrait
+        ? _altarPlaneHalfWidthPortrait
+        : _altarPlaneHalfWidthLandscape;
+  }
 
   /// Xoay model ban tho quanh Y. Doi neu mat chinh bi lat ra sau: thu 0, ±pi/2, pi.
   static const double _altarModelYawRad = -math.pi / 2;
@@ -779,14 +886,12 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
   late three.OrbitControls _controls;
   final adv.GLTFLoader _loader = adv.GLTFLoader();
   final Map<String, three.Object3D> _itemObjects = <String, three.Object3D>{};
-  final Map<String, three.Object3D> _modelSceneCache = <String, three.Object3D>{};
+  final Map<String, three.Object3D> _modelSceneCache =
+      <String, three.Object3D>{};
   final Set<String> _warnedMissingGlb = <String>{};
+  three.Object3D? _altarRoot;
   bool _ready = false;
   bool _isPointerDragging = false;
-  /// Khoang cach (theo man hinh) tu diem bam toi goc tren-trai hop logic (_labelBox * scale).
-  /// Giu co dinh trong mot lan keo de khong "nhay" tam vat ve con tro luc pointerDown.
-  Offset? _moveGrabOffset;
-
 
   void _notifyLoadFailedOnce(String assetFileName) {
     if (_warnedMissingGlb.contains(assetFileName)) return;
@@ -826,7 +931,9 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
         return;
       }
       if (m is List) {
-        (o as dynamic).material = m.map((dynamic x) => _cloneSceneMaterial(x as three.Material)).toList();
+        (o as dynamic).material = m
+            .map((dynamic x) => _cloneSceneMaterial(x as three.Material))
+            .toList();
       } else {
         o.material = _cloneSceneMaterial(m as three.Material);
       }
@@ -877,15 +984,13 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
         enableShadowMap: false,
         antialias: false,
         stencil: false,
+
         /// Giam VRAM / tranh loi D3D11 0x8007000E (het bo nho texture tren GPU).
         /// Tren mobile giam them de vuot thich ung khi xoay / keo vat.
         screenResolution: _altarThreeScreenResolution(),
         clearColor: 0xFF1a2230,
         clearAlpha: 1.0,
-        renderOptions: <String, dynamic>{
-          'format': RGBAFormat,
-          'samples': 0,
-        },
+        renderOptions: <String, dynamic>{'format': RGBAFormat, 'samples': 0},
       ),
       setup: _setupScene,
       onSetupComplete: () {
@@ -904,9 +1009,12 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
     if (oldWidget.allowOrbit != widget.allowOrbit) {
       _controls.enabled = widget.allowOrbit;
       _controls.enableRotate = widget.allowOrbit;
-      _controls.enablePan = widget.allowOrbit;
-      _controls.enableZoom = widget.allowOrbit;
+      _controls.enablePan = false;
+      _controls.enableZoom = false;
       _controls.enableDamping = widget.allowOrbit;
+    }
+    if (oldWidget.zoneSize != widget.zoneSize) {
+      _applySceneFraming();
     }
     if (_samePlacedInventory(oldWidget, widget) &&
         _itemObjects.length == widget.items.length) {
@@ -916,14 +1024,42 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
     _syncSceneObjects();
   }
 
+  void _applySceneFraming() {
+    final double aspect = _threeJs.height > 0
+        ? (_threeJs.width / _threeJs.height)
+        : 1.0;
+    final bool isPortrait = aspect < 0.9;
+    final three.PerspectiveCamera camera =
+        _threeJs.camera as three.PerspectiveCamera;
+
+    camera.fov = isPortrait ? 44 : 35;
+    camera.position.setValues(
+      0.0,
+      isPortrait ? 1.94 : 1.6,
+      isPortrait ? 3.9 : 2.6,
+    );
+    camera.lookAt(three.Vector3(0, isPortrait ? 1.05 : 1.2, 0));
+    camera.updateProjectionMatrix();
+
+    _controls.target.setValues(0.0, isPortrait ? 1.05 : 1.2, 0.0);
+    _controls.minDistance = isPortrait ? 2.9 : 1.6;
+    _controls.maxDistance = isPortrait ? 6.2 : 12.0;
+
+    final double altarScaleX = isPortrait ? 2.08 : 3.0;
+    final double altarScaleY = isPortrait ? 2.42 : 3.0;
+    final double altarScaleZ = isPortrait ? 2.08 : 3.0;
+    _altarRoot?.scale.setValues(altarScaleX, altarScaleY, altarScaleZ);
+    _altarRoot?.position.setValues(0.0, isPortrait ? 1 : 0.0, 0.0);
+  }
+
   Future<void> _setupScene() async {
     _threeJs.camera = three.PerspectiveCamera(
-      42,
+      35,
       _threeJs.width / _threeJs.height,
       0.3,
       120,
     );
-    _threeJs.camera.position.setValues(0.0, 2.3, 5.8);
+    _threeJs.camera.position.setValues(0.0, 1.6, 2.6);
     _threeJs.camera.lookAt(three.Vector3(0, 1.2, 0));
 
     _threeJs.scene = three.Scene();
@@ -942,23 +1078,31 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
 
     _controls = three.OrbitControls(_threeJs.camera, _threeJs.globalKey);
     _controls.enabled = widget.allowOrbit;
-    _controls.enablePan = widget.allowOrbit;
+    _controls.enablePan = false;
     _controls.enableRotate = widget.allowOrbit;
     _controls.enableZoom = widget.allowOrbit;
     _controls.enableDamping = widget.allowOrbit;
     _controls.dampingFactor = 0.06;
-    _controls.minDistance = 2.0;
-    _controls.maxDistance = 20.0;
-    _controls.minPolarAngle = 0.0;
-    _controls.maxPolarAngle = math.pi;
-    _controls.target.setValues(0.0, 1.2, 0.0);
+    _controls.minDistance = 1.6;
+    _controls.maxDistance = 12.0;
+    // Giới hạn xoay: chỉ cho phép xoay một chút lên trên, không xoay toàn bộ 360°
+    _controls.minPolarAngle = 0.95; // Hạn chế nhìn từ trên xuống quá cao.
+    _controls.maxPolarAngle = 1.5; // Giữ góc nhìn gần chính diện.
+    // Giới hạn xoay trái/phải để không xoay quanh 360°
+    _controls.minAzimuthAngle = -math.pi * 0.12;
+    _controls.maxAzimuthAngle = math.pi * 0.12;
+    _controls.target.setValues(0.0, 1.26, 0.0);
 
-    final three.Object3D? altarScene = await _loadModelScene(widget.altarAssetFileName);
+    final three.Object3D? altarScene = await _loadModelScene(
+      widget.altarAssetFileName,
+    );
     if (altarScene != null) {
       altarScene.position.setValues(0.0, 0.0, 0.0);
       altarScene.rotation.y = _altarModelYawRad;
-      altarScene.scale.setValues(1.9, 1.9, 1.9);
+      altarScene.scale.setValues(3.0, 3.0, 3.0);
+      _altarRoot = altarScene;
       _threeJs.scene.add(altarScene);
+      _applySceneFraming();
     } else {
       _notifyLoadFailedOnce(widget.altarAssetFileName);
     }
@@ -975,8 +1119,12 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
       if (obj == null) {
         continue;
       }
-      final double nx = (item.x / widget.zoneSize.width) - 0.5;
-      final double nz = (item.y / widget.zoneSize.height) - 0.5;
+      final double boxW = _labelBox * item.scale;
+      final double boxH = _labelBox * item.scale;
+      final double centerX = item.x + boxW / 2;
+      final double centerY = item.y + boxH / 2;
+      final double nx = (centerX / widget.zoneSize.width) - 0.5;
+      final double nz = (centerY / widget.zoneSize.height) - 0.5;
       final double wx = nx * 2 * _altarPlaneHalfWidth;
       final double wz = nz * 2 * _altarPlaneHalfDepth;
       // Keep drag axes screen-friendly: left/right maps to horizontal movement.
@@ -988,8 +1136,12 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
   }
 
   Future<void> _syncSceneObjects() async {
-    final List<AltarPlacedItem> itemsSnapshot = List<AltarPlacedItem>.from(widget.items);
-    final Set<String> activeIds = itemsSnapshot.map((AltarPlacedItem e) => e.id).toSet();
+    final List<AltarPlacedItem> itemsSnapshot = List<AltarPlacedItem>.from(
+      widget.items,
+    );
+    final Set<String> activeIds = itemsSnapshot
+        .map((AltarPlacedItem e) => e.id)
+        .toSet();
     final List<String> toRemove = _itemObjects.keys
         .where((String id) => !activeIds.contains(id))
         .toList();
@@ -1046,7 +1198,9 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
       }
     }
     try {
-      final ByteData data = await rootBundle.load('assets/altar_glb/$assetFileName');
+      final ByteData data = await rootBundle.load(
+        'assets/altar_glb/$assetFileName',
+      );
       return await _loader.fromBytes(data.buffer.asUint8List());
     } catch (e) {
       debugPrint('GLTF fromBytes failed assets/altar_glb/$assetFileName: $e');
@@ -1082,12 +1236,16 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
     final double wz = -s0 * rx + c * rz;
     final double nx = wx / (2 * _altarPlaneHalfWidth);
     final double nz = wz / (2 * _altarPlaneHalfDepth);
-    double itemX = (nx + 0.5) * widget.zoneSize.width;
-    double itemY = (nz + 0.5) * widget.zoneSize.height;
-    final double maxX =
-        (widget.zoneSize.width - _labelBox * target.scale).clamp(0, double.infinity);
-    final double maxY =
-        (widget.zoneSize.height - _labelBox * target.scale).clamp(0, double.infinity);
+    final double boxW = _labelBox * target.scale;
+    final double boxH = _labelBox * target.scale;
+    final double centerX = (nx + 0.5) * widget.zoneSize.width;
+    final double centerY = (nz + 0.5) * widget.zoneSize.height;
+    double itemX = centerX - boxW / 2;
+    double itemY = centerY - boxH / 2;
+    final double maxX = (widget.zoneSize.width - boxW)
+        .clamp(0, double.infinity);
+    final double maxY = (widget.zoneSize.height - boxH)
+        .clamp(0, double.infinity);
     itemX = itemX.clamp(0, maxX);
     itemY = itemY.clamp(0, maxY);
     cb(target.copyWith(x: itemX, y: itemY));
@@ -1105,7 +1263,8 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
       return null;
     }
     cam.updateMatrixWorld(true);
-    final three.Vector3 origin = three.Vector3()..setFromMatrixPosition(cam.matrixWorld);
+    final three.Vector3 origin = three.Vector3()
+      ..setFromMatrixPosition(cam.matrixWorld);
     final double ndcX = _flutterLocalXToNdc(localX, viewW);
     final double ndcY = _flutterLocalYToNdc(localY, viewH);
     final three.Vector3 p = three.Vector3(ndcX, ndcY, 0.5);
@@ -1133,27 +1292,31 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
     if (e is PointerMoveEvent && !_isPointerDragging) {
       return;
     }
-    final Set<LogicalKeyboardKey> pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final bool shiftPressed = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+    final Set<LogicalKeyboardKey> pressed =
+        HardwareKeyboard.instance.logicalKeysPressed;
+    final bool shiftPressed =
+        pressed.contains(LogicalKeyboardKey.shiftLeft) ||
         pressed.contains(LogicalKeyboardKey.shiftRight);
     if (shiftPressed && e is PointerMoveEvent) {
-      final double nextLift =
-          (target.lift - e.delta.dy * _liftDragPerPixel).clamp(_minLift, _maxLift);
+      final double nextLift = (target.lift - e.delta.dy * _liftDragPerPixel)
+          .clamp(_minLift, _maxLift);
       cb(target.copyWith(lift: nextLift));
       return;
     }
     final Offset cur = e.localPosition;
     final double boxW = _labelBox * target.scale;
     final double boxH = _labelBox * target.scale;
-    final double maxX =
-        (widget.zoneSize.width - boxW).clamp(0, double.infinity);
-    final double maxY =
-        (widget.zoneSize.height - boxH).clamp(0, double.infinity);
+    final double maxX = (widget.zoneSize.width - boxW).clamp(
+      0,
+      double.infinity,
+    );
+    final double maxY = (widget.zoneSize.height - boxH).clamp(
+      0,
+      double.infinity,
+    );
 
-    final Offset grab = _moveGrabOffset ??
-        Offset(cur.dx - target.x, cur.dy - target.y);
-    final double nextX = (cur.dx - grab.dx).clamp(0, maxX);
-    final double nextY = (cur.dy - grab.dy).clamp(0, maxY);
+    final double nextX = (cur.dx - boxW / 2).clamp(0, maxX);
+    final double nextY = (cur.dy - boxH / 2).clamp(0, maxY);
     cb(target.copyWith(x: nextX, y: nextY));
   }
 
@@ -1167,7 +1330,9 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
   @override
   Widget build(BuildContext context) {
     Widget view = _threeJs.build();
-    if (widget.moveItemMode && widget.moveTargetItem != null && widget.onMovePlacedItem != null) {
+    if (widget.moveItemMode &&
+        widget.moveTargetItem != null &&
+        widget.onMovePlacedItem != null) {
       // GestureDetector onPan* often loses to three_js Peripherals (ScaleGestureRecognizer).
       // Raw pointer move while primary button is down reliably moves the item on desktop.
       view = Listener(
@@ -1177,11 +1342,6 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
             return;
           }
           _isPointerDragging = true;
-          final AltarPlacedItem? t = widget.moveTargetItem;
-          if (t != null) {
-            final Offset cur = e.localPosition;
-            _moveGrabOffset = Offset(cur.dx - t.x, cur.dy - t.y);
-          }
           _moveTargetToPointer(e);
         },
         onPointerMove: (PointerMoveEvent e) {
@@ -1189,11 +1349,9 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
         },
         onPointerUp: (_) {
           _isPointerDragging = false;
-          _moveGrabOffset = null;
         },
         onPointerCancel: (_) {
           _isPointerDragging = false;
-          _moveGrabOffset = null;
         },
         child: view,
       );
@@ -1210,6 +1368,7 @@ class _AssetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String? avatarAssetPath = _avatarAssetPathForGlb(asset.path);
     return SizedBox(
       width: compact ? 240 : double.infinity,
       child: Container(
@@ -1221,13 +1380,30 @@ class _AssetTile extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            const Icon(Icons.view_in_ar_outlined),
+            if (avatarAssetPath != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  avatarAssetPath,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.view_in_ar_outlined),
+                ),
+              )
+            else
+              const Icon(Icons.view_in_ar_outlined),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(asset.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    asset.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (!compact)
                     Text(
                       asset.path,
