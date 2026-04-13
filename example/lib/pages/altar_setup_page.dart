@@ -55,8 +55,7 @@ const Map<String, String> _kAvatarAssetByGlbName = <String, String>{
   'ornate glass oil lamp 3d model.glb':
       'assets/avatars/ornate_glass_oil_lamp.png',
   'porcelain pedestal 3d model.glb': 'assets/avatars/porcelain_pedestal.png',
-  'porcelain sugar jar 3d model.glb':
-      'assets/avatars/porcelain_sugar_jar.png',
+  'porcelain sugar jar 3d model.glb': 'assets/avatars/porcelain_sugar_jar.png',
   'porcelain vase 3d model.glb': 'assets/avatars/porcelain_vase.png',
   'porcelain vase 3d model (1).glb': 'assets/avatars/porcelain_vase_1.png',
 };
@@ -462,15 +461,16 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
             icon: Icon(_showLibraryPanel ? Icons.menu_open : Icons.menu),
           ),
           IconButton(
-            tooltip: _showItemControlPanel ? 'Ẩn bảng điều khiển vật' : 'Hiện bảng điều khiển vật',
+            tooltip: _showItemControlPanel
+                ? 'Ẩn bảng điều khiển vật'
+                : 'Hiện bảng điều khiển vật',
             onPressed: _items.isEmpty
                 ? null
-                : () =>
-                      setState(() => _showItemControlPanel = !_showItemControlPanel),
+                : () => setState(
+                    () => _showItemControlPanel = !_showItemControlPanel,
+                  ),
             icon: Icon(
-              _showItemControlPanel
-                  ? Icons.tune
-                  : Icons.tune_outlined,
+              _showItemControlPanel ? Icons.tune : Icons.tune_outlined,
             ),
           ),
           IconButton(
@@ -1242,10 +1242,14 @@ class _AltarSceneViewState extends State<_AltarSceneView> {
     final double centerY = (nz + 0.5) * widget.zoneSize.height;
     double itemX = centerX - boxW / 2;
     double itemY = centerY - boxH / 2;
-    final double maxX = (widget.zoneSize.width - boxW)
-        .clamp(0, double.infinity);
-    final double maxY = (widget.zoneSize.height - boxH)
-        .clamp(0, double.infinity);
+    final double maxX = (widget.zoneSize.width - boxW).clamp(
+      0,
+      double.infinity,
+    );
+    final double maxY = (widget.zoneSize.height - boxH).clamp(
+      0,
+      double.infinity,
+    );
     itemX = itemX.clamp(0, maxX);
     itemY = itemY.clamp(0, maxY);
     cb(target.copyWith(x: itemX, y: itemY));
