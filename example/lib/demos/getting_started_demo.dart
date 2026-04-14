@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:canvas_kit/canvas_kit.dart';
 import 'package:example/demos/unity_bat_huong_demo.dart';
-import 'package:example/main_family_tree.dart';
 import 'package:example/pages/altar_setup_page.dart';
 import 'package:example/services/node_chat_service.dart';
 import 'package:example/widgets/add_node_chat_dialog.dart';
@@ -20,7 +19,9 @@ import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 // import 'family_tree_list_demo.dart';
 
 class GettingStartedDemoPage extends StatefulWidget {
-  const GettingStartedDemoPage({super.key});
+  const GettingStartedDemoPage({super.key, this.initialJsonText});
+
+  final String? initialJsonText;
 
   @override
   State<GettingStartedDemoPage> createState() => _GettingStartedDemoPageState();
@@ -580,6 +581,7 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
   final Set<String> _inFlightImageNodeIds = <String>{};
   final Map<String, Rect> _nodeBoundsById = <String, Rect>{};
   bool _nodeBoundsDirty = true;
+  bool _didImportInitialJson = false;
 
   // Filter UI state
   String? _filterRootNodeId;
@@ -631,8 +633,29 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _syncEdgeFxTicker();
+        _importInitialJsonIfProvided();
       }
     });
+  }
+
+  void _importInitialJsonIfProvided() {
+    if (_didImportInitialJson) {
+      return;
+    }
+    final initialJsonText = widget.initialJsonText;
+    if (initialJsonText == null || initialJsonText.trim().isEmpty) {
+      _didImportInitialJson = true;
+      return;
+    }
+    _didImportInitialJson = true;
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(initialJsonText);
+    } catch (_) {
+      _showSnack('JSON khởi tạo không hợp lệ.');
+      return;
+    }
+    _importDecodedGraph(decoded, loadImages: false);
   }
 
   /// Chi chay AnimationController khi co canh noi dong / node nhap nhay — tiet kiem CPU tren mobile.
@@ -757,16 +780,16 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
                           worldViewport,
                           visibleNodeIds,
                         );
-                        final visibleTextNotes =
-                            _visibleTextNotesForViewport(worldViewport);
+                        final visibleTextNotes = _visibleTextNotesForViewport(
+                          worldViewport,
+                        );
                         final selectedEdge =
                             _selectedEdgeIndex != null &&
                                 _selectedEdgeIndex! >= 0 &&
                                 _selectedEdgeIndex! < _edges.length
                             ? _edges[_selectedEdgeIndex!]
                             : null;
-                        final visibleSelectedEdgeIndex =
-                            selectedEdge == null
+                        final visibleSelectedEdgeIndex = selectedEdge == null
                             ? null
                             : visibleEdges.indexOf(selectedEdge);
 
@@ -774,112 +797,108 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
                           controller: _controller,
                           externalTransformNotifications: true,
                           interactionMode: _tool == _CanvasTool.hand
-                                  ? InteractionMode.programmatic
-                                  : InteractionMode.interactive,
-                              enablePan: _tool == _CanvasTool.hand,
-                              enableWheelZoom: true,
-                              gestureOverlayBuilder: _tool == _CanvasTool.hand
-                                  ? (t, c) => _HandPanOverlay(controller: c)
+                              ? InteractionMode.programmatic
+                              : InteractionMode.interactive,
+                          enablePan: _tool == _CanvasTool.hand,
+                          enableWheelZoom: true,
+                          gestureOverlayBuilder: _tool == _CanvasTool.hand
+                              ? (t, c) => _HandPanOverlay(controller: c)
+                              : null,
+                          backgroundBuilder: (transform) => Container(
+                            color: const Color(0xFFF7F8FA),
+                            child: CustomPaint(
+                              painter: _GridPainter(
+                                transform: transform,
+                                spacing: 50,
+                              ),
+                              size: Size.infinite,
+                            ),
+                          ),
+                          foregroundLayers: [
+                            (t) => _GroupPainter(
+                              transform: t,
+                              nodes: _nodes,
+                              groups: _groups,
+                            ),
+                            (t) => _EdgePainter(
+                              transform: t,
+                              nodes: _nodes,
+                              groups: _groups,
+                              edges: visibleEdges,
+                              selectedEdgeIndex:
+                                  visibleSelectedEdgeIndex != null &&
+                                      visibleSelectedEdgeIndex >= 0
+                                  ? visibleSelectedEdgeIndex
                                   : null,
-                              backgroundBuilder: (transform) => Container(
-                                color: const Color(0xFFF7F8FA),
-                                child: CustomPaint(
-                                  painter: _GridPainter(
-                                    transform: transform,
-                                    spacing: 50,
-                                  ),
-                                  size: Size.infinite,
+                              fxValue: _edgeFxController.value,
+                            ),
+                          ],
+                          children: [
+                            ...visibleNodes.map(
+                              (node) => CanvasItem(
+                                id: node.id,
+                                worldPosition: node.position,
+                                estimatedSize: node.size,
+                                draggable: false,
+                                child: _NodeWidget(
+                                  node: node,
+                                  selected: _selectedIds.contains(node.id),
+                                  tool: _tool,
+                                  fxValue: _edgeFxController.value,
+                                  onTap: () => _onNodeTap(node.id),
+                                  onDoubleTapEdit: () => _editText(node),
+                                  onSecondaryTapDown: (d) =>
+                                      _showNodeMenu(node, d),
+                                  onMoved: (deltaWorld) =>
+                                      _moveNode(node.id, deltaWorld),
+                                  onResize: (size) =>
+                                      _resizeNode(node.id, size),
+                                  onStartConnectFromPort: (port, kind) =>
+                                      _startPortDrag(node.id, port, kind: kind),
                                 ),
                               ),
-                              foregroundLayers: [
-                                (t) => _GroupPainter(
-                                  transform: t,
-                                  nodes: _nodes,
-                                  groups: _groups,
+                            ),
+                            ...visibleTextNotes.map(
+                              (note) => CanvasItem(
+                                id: note.id,
+                                worldPosition: note.position,
+                                draggable: !_isDrawTool,
+                                onWorldMoved: (next) =>
+                                    setState(() => note.position = next),
+                                child: _TextNoteWidget(
+                                  note: note,
+                                  selected: _selectedTextId == note.id,
+                                  editing: _editingTextId == note.id,
+                                  onTap: () {
+                                    if (_isDrawTool) return;
+                                    setState(() {
+                                      _selectedTextId = note.id;
+                                      _showTextStylePanel = true;
+                                      _selectedIds.clear();
+                                      _selectedEdgeIndex = null;
+                                    });
+                                  },
+                                  onDoubleTap: () {
+                                    if (_isDrawTool) return;
+                                    setState(() {
+                                      _selectedTextId = note.id;
+                                      _editingTextId = note.id;
+                                      _showTextStylePanel = true;
+                                      _selectedIds.clear();
+                                      _selectedEdgeIndex = null;
+                                    });
+                                  },
+                                  onTextChanged: (v) => note.text = v,
+                                  onSubmit: () => setState(() {
+                                    _editingTextId = null;
+                                    _selectedTextId = note.id;
+                                    _showTextStylePanel = true;
+                                  }),
                                 ),
-                                (t) => _EdgePainter(
-                                  transform: t,
-                                  nodes: _nodes,
-                                  groups: _groups,
-                                  edges: visibleEdges,
-                                  selectedEdgeIndex:
-                                      visibleSelectedEdgeIndex != null &&
-                                          visibleSelectedEdgeIndex >= 0
-                                      ? visibleSelectedEdgeIndex
-                                      : null,
-                                  fxValue: _edgeFxController.value,
-                                ),
-                              ],
-                              children: [
-                                ...visibleNodes.map(
-                                  (node) => CanvasItem(
-                                    id: node.id,
-                                    worldPosition: node.position,
-                                    estimatedSize: node.size,
-                                    draggable: false,
-                                    child: _NodeWidget(
-                                      node: node,
-                                      selected: _selectedIds.contains(node.id),
-                                      tool: _tool,
-                                      fxValue: _edgeFxController.value,
-                                      onTap: () => _onNodeTap(node.id),
-                                      onDoubleTapEdit: () => _editText(node),
-                                      onSecondaryTapDown: (d) =>
-                                          _showNodeMenu(node, d),
-                                      onMoved: (deltaWorld) =>
-                                          _moveNode(node.id, deltaWorld),
-                                      onResize: (size) =>
-                                          _resizeNode(node.id, size),
-                                      onStartConnectFromPort: (port, kind) =>
-                                          _startPortDrag(
-                                            node.id,
-                                            port,
-                                            kind: kind,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                ...visibleTextNotes.map(
-                                  (note) => CanvasItem(
-                                    id: note.id,
-                                    worldPosition: note.position,
-                                    draggable: !_isDrawTool,
-                                    onWorldMoved: (next) =>
-                                        setState(() => note.position = next),
-                                    child: _TextNoteWidget(
-                                      note: note,
-                                      selected: _selectedTextId == note.id,
-                                      editing: _editingTextId == note.id,
-                                      onTap: () {
-                                        if (_isDrawTool) return;
-                                        setState(() {
-                                          _selectedTextId = note.id;
-                                          _showTextStylePanel = true;
-                                          _selectedIds.clear();
-                                          _selectedEdgeIndex = null;
-                                        });
-                                      },
-                                      onDoubleTap: () {
-                                        if (_isDrawTool) return;
-                                        setState(() {
-                                          _selectedTextId = note.id;
-                                          _editingTextId = note.id;
-                                          _showTextStylePanel = true;
-                                          _selectedIds.clear();
-                                          _selectedEdgeIndex = null;
-                                        });
-                                      },
-                                      onTextChanged: (v) => note.text = v,
-                                      onSubmit: () => setState(() {
-                                        _editingTextId = null;
-                                        _selectedTextId = note.id;
-                                        _showTextStylePanel = true;
-                                      }),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
+                              ),
+                            ),
+                          ],
+                        );
                       },
                     );
                   },
@@ -1128,6 +1147,7 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
         _selectedEdgeIndex! >= 0 &&
         _selectedEdgeIndex! < _edges.length;
     final selectedEdge = hasEdge ? _edges[_selectedEdgeIndex!] : null;
+    final bool canGoBack = Navigator.of(context).canPop();
 
     return SizedBox(
       height: 52,
@@ -1153,6 +1173,15 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
             ),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             children: [
+              IconButton(
+                tooltip: 'Back',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                onPressed: canGoBack
+                    ? () => Navigator.of(context).maybePop()
+                    : null,
+                icon: const Icon(Icons.arrow_back),
+              ),
+              _toolbarDivider(),
               _toolBtn(
                 Icons.near_me,
                 _tool == _CanvasTool.cursor,
@@ -1311,18 +1340,6 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
                 constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 onPressed: _importFamilyTreeJson,
                 icon: const Icon(Icons.account_tree_outlined),
-              ),
-              IconButton(
-                tooltip: 'Family Tree List',
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    // builder: (context) => const FamilyTreeListDemoPage(),
-                    builder: (context) => const FamilyTreePage(),
-                  ),
-                ),
-                icon: const Icon(Icons.list),
               ),
               if (_showSearchBox)
                 SizedBox(
@@ -4192,7 +4209,10 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
       _showSnack('JSON không hợp lệ.');
       return;
     }
+    _importDecodedGraph(decoded);
+  }
 
+  void _importDecodedGraph(dynamic decoded, {bool loadImages = true}) {
     final imported = _parseImportedGraph(decoded);
     if (imported.nodes.isEmpty) {
       _showSnack('Không tìm thấy node hợp lệ trong file JSON.');
@@ -4221,18 +4241,26 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
     });
 
     setState(() {
-      _isImportingImages = totalImages > 0;
+      _isImportingImages = loadImages && totalImages > 0;
       _loadedImageCount = 0;
-      _totalImageCount = totalImages;
+      _totalImageCount = loadImages ? totalImages : 0;
     });
     _fitToAllNodes();
     _showSnack(
-      totalImages > 0
+      loadImages && totalImages > 0
           ? 'Đã import ${imported.nodes.length} nodes, ${imported.edges.length} edges. Đang tải ảnh theo lô...'
           : 'Đã import ${imported.nodes.length} nodes, ${imported.edges.length} edges.',
     );
 
-    _startViewportImageLoading(imported.imageUrls);
+    if (loadImages) {
+      _startViewportImageLoading(imported.imageUrls);
+    } else {
+      _imageLoaderEpoch++;
+      _imageLoaderRunning = false;
+      _pendingImageUrlsByNode.clear();
+      _queuedImageNodeIds.clear();
+      _inFlightImageNodeIds.clear();
+    }
     if (imported.nodes.length >= 500) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -6498,7 +6526,9 @@ class _GettingStartedDemoPageState extends State<GettingStartedDemoPage>
         MaterialPageRoute(
           builder: (_) => AltarSetupPage(
             memberKey: node.id,
-            memberName: node.text.trim().isEmpty ? 'Node ${node.id}' : node.text.trim(),
+            memberName: node.text.trim().isEmpty
+                ? 'Node ${node.id}'
+                : node.text.trim(),
           ),
         ),
       );

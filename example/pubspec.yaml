@@ -88,6 +88,7 @@ flutter:
     - assets/PARALLAX2/
     - assets/altar_glb/
     - assets/avatars/
+    - testnode - Copy.json
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart' as gestures;
 import 'package:flutter/material.dart';
 
-import 'demos/getting_started_demo.dart';
+import 'main_family_tree.dart';
 
 void main() {
   // Enable gesture arena diagnostics for debugging recognizer conflicts
@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
       title: 'Canvas Studio Pro',
       theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      home: const GettingStartedDemoPage(),
+      home: const FamilyTreePage(),
     );
   }
 }

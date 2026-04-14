@@ -42,6 +42,18 @@ const Map<String, String> _kVietnameseAssetNames = <String, String>{
   'porcelain sugar jar 3d model.glb': 'Hũ sứ',
   'porcelain vase 3d model.glb': 'Bình sứ',
   'porcelain vase 3d model (1).glb': 'Bình sứ mẫu 2',
+  'ceramic bowl 3d model.glb': 'Bát sứ',
+  'ornate spinning top 3d model.glb': 'Con quay trang trí',
+  'dragon ceramic cup holder 3d model.glb': 'Đế ly gốm họa tiết rồng',
+  'green ceramic jar 3d model.glb': 'Hũ gốm xanh',
+  'ornate ceramic vase 3d model.glb': 'Bình gốm hoa văn',
+  'ornate lotus candle holder 3d model.glb': 'Đế nến hoa sen chạm khắc',
+  'tibetan singing bowl 3d model.glb': 'Chuông xoay Tây Tạng',
+  'tea set 3d model.glb': 'Bộ ấm trà',
+  'ornate ceramic bowl 3d model.glb': 'Bát gốm chạm khắc',
+  'porcelain vase 3d model ver2.glb': 'Bình sứ mẫu 3',
+  'white pedestal 3d model.glb': 'Đôn trắng',
+  'decorative ceramic tray 3d model.glb': 'Khay gốm trang trí',
 };
 
 const Map<String, String> _kAvatarAssetByGlbName = <String, String>{
@@ -58,6 +70,22 @@ const Map<String, String> _kAvatarAssetByGlbName = <String, String>{
   'porcelain sugar jar 3d model.glb': 'assets/avatars/porcelain_sugar_jar.png',
   'porcelain vase 3d model.glb': 'assets/avatars/porcelain_vase.png',
   'porcelain vase 3d model (1).glb': 'assets/avatars/porcelain_vase_1.png',
+  'ceramic bowl 3d model.glb': 'assets/avatars/ceramic bowl.png',
+  'ornate spinning top 3d model.glb': 'assets/avatars/ornate spinning top.png',
+  'dragon ceramic cup holder 3d model.glb':
+      'assets/avatars/dragon ceramic cup holder.png',
+  'green ceramic jar 3d model.glb': 'assets/avatars/green ceramic jar.png',
+  'ornate ceramic vase 3d model.glb': 'assets/avatars/ornate ceramic vase.png',
+  'ornate lotus candle holder 3d model.glb':
+      'assets/avatars/ornate lotus candle holder.png',
+  'tibetan singing bowl 3d model.glb':
+      'assets/avatars/tibetan singing bowl.png',
+  'tea set 3d model.glb': 'assets/avatars/tea set.png',
+  'ornate ceramic bowl 3d model.glb': 'assets/avatars/ornate ceramic bowl.png',
+  'porcelain vase 3d model ver2.glb': 'assets/avatars/porcelain vase ver2.png',
+  'white pedestal 3d model.glb': 'assets/avatars/white pedestal.png',
+  'decorative ceramic tray 3d model.glb':
+      'assets/avatars/decorative ceramic tray.png',
 };
 
 String? _avatarAssetPathForGlb(String fileName) {
@@ -257,6 +285,7 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
   bool _isSaving = false;
   bool _moveItemMode = false;
   bool _showItemControlPanel = true;
+  Size _lastSceneZoneSize = Size.zero;
 
   @override
   void initState() {
@@ -344,6 +373,15 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
       );
       _selectedItemId = id;
     });
+  }
+
+  void _addFromAssetAtCenter(AltarAsset asset, Size zoneSize) {
+    const double defaultScale = 1.0;
+    final Offset centeredTopLeft = Offset(
+      (zoneSize.width - _itemWidth(defaultScale)) / 2,
+      (zoneSize.height - _itemHeight(defaultScale)) / 2,
+    );
+    _addFromAsset(asset, zoneSize, dropLocalPosition: centeredTopLeft);
   }
 
   void _updateItem(AltarPlacedItem updated) {
@@ -500,6 +538,7 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
                 constraints.maxWidth,
                 constraints.maxHeight,
               );
+              _lastSceneZoneSize = zoneSize;
               return Stack(
                 children: <Widget>[
                   DragTarget<AltarAsset>(
@@ -696,6 +735,13 @@ class _AltarSetupPageState extends State<AltarSetupPage> {
             assets: _libraryAssets,
             loading: _libraryLoading,
             onClose: () => setState(() => _showLibraryPanel = false),
+            onTapAsset: (AltarAsset asset) {
+              final Size zone = _lastSceneZoneSize;
+              if (zone.width <= 0 || zone.height <= 0) {
+                return;
+              }
+              _addFromAssetAtCenter(asset, zone);
+            },
           );
 
           final double panelWidth = isCompactLayout
@@ -744,11 +790,13 @@ class _LibraryPanel extends StatelessWidget {
   final List<AltarAsset> assets;
   final bool loading;
   final VoidCallback? onClose;
+  final ValueChanged<AltarAsset>? onTapAsset;
 
   const _LibraryPanel({
     required this.assets,
     required this.loading,
     this.onClose,
+    this.onTapAsset,
   });
 
   @override
@@ -800,26 +848,40 @@ class _LibraryPanel extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   )
-                : ListView.separated(
+                : GridView.builder(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 4,
+                      vertical: 6,
                     ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 0.66,
+                        ),
                     itemCount: assets.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (BuildContext context, int index) {
                       final AltarAsset asset = assets[index];
+                      final Widget tile = GestureDetector(
+                        onTap: () => onTapAsset?.call(asset),
+                        child: _AssetTile(asset: asset),
+                      );
                       return Draggable<AltarAsset>(
                         data: asset,
                         feedback: Material(
                           elevation: 2,
-                          child: _AssetTile(asset: asset, compact: true),
+                          child: SizedBox(
+                            width: 120,
+                            height: 150,
+                            child: _AssetTile(asset: asset, compact: true),
+                          ),
                         ),
                         childWhenDragging: Opacity(
                           opacity: 0.4,
                           child: _AssetTile(asset: asset),
                         ),
-                        child: _AssetTile(asset: asset),
+                        child: tile,
                       );
                     },
                   ),
@@ -1373,53 +1435,49 @@ class _AssetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String? avatarAssetPath = _avatarAssetPathForGlb(asset.path);
-    return SizedBox(
-      width: compact ? 240 : double.infinity,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(
-          children: <Widget>[
-            if (avatarAssetPath != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  avatarAssetPath,
-                  width: 44,
-                  height: 44,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.view_in_ar_outlined),
-                ),
-              )
-            else
-              const Icon(Icons.view_in_ar_outlined),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    asset.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (!compact)
-                    Text(
-                      asset.path,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: avatarAssetPath != null
+                  ? Image.asset(
+                      avatarAssetPath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const DecoratedBox(
+                        decoration: BoxDecoration(color: Color(0xFFF1F5F9)),
+                        child: Center(child: Icon(Icons.view_in_ar_outlined)),
+                      ),
+                    )
+                  : const DecoratedBox(
+                      decoration: BoxDecoration(color: Color(0xFFF1F5F9)),
+                      child: Center(child: Icon(Icons.view_in_ar_outlined)),
                     ),
-                ],
-              ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: compact ? 16 : 30,
+            child: Text(
+              asset.name,
+              maxLines: compact ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
